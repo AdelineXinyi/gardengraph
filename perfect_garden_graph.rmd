@@ -1,0 +1,405 @@
+---
+title: "Xinyi's Perfect Garden Graph"
+author: "Xinyi Li"
+output:
+  word_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+    df_print: paged
+    code_download: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE,error=TRUE)
+
+```
+
+```{r libraries}
+library(tidyverse)         # for graphing and data cleaning
+library(lubridate)         # for working with dates
+library(gardenR)
+library(ggplot2)
+
+library(ggthemes)
+library(stringr)
+library(ggpubr)
+library(hrbrthemes)
+library(ggimage)
+library(ggridges)
+library(patchwork)
+library(viridis)
+theme_set(theme_minimal()) 
+```
+
+```{r data}
+# load the garden data 
+data(garden_harvest)
+```
+
+Explain the question you hope to answer and create the graph below in the Graph Week 1 section. For the first week, you may not have the skills quite yet to create exactly what you want to create - that's ok! Get as close as you can, and the instructors will give you feedback to help you out. You can summarize the data in any way you'd like. Add R code chunks and comment code as needed. As the weeks go by, you will continue to build on this file by putting new code in the next Graph sections. You will keep all the old code, add your instructor's feedback by copying and pasting it from moodle (found in the Grade section of moodle), and make improvements from my suggestions and from other ideas you have. Having the old code and graphs and the instructor feedback will help you (and the instructors) easily see the progress throughout the course.
+
+## Graph Week 1
+
+Question I hope to answer: What's the time of all tomatoes varieties harvested?
+
+```{r}
+garden_harvest %>% 
+  filter(vegetable=="tomatoes") %>% 
+  group_by(variety) %>% 
+  summarise(count=n()) %>% 
+  ggplot(aes(y=reorder(variety,count),x=count))+
+  geom_bar(stat = 'identity',fill="lightblue")+
+  labs(title="Times of all tomatoes varieties harvested",x="number of time",y="variety")+
+  geom_text(aes(label=count), vjust=1.6, size=3.5)+
+  theme_minimal()+
+  theme_clean()+
+  theme(plot.title = element_text(hjust=0.5,color="black",face="bold",size=18,vjust=1))
+
+```
+
+Instructor's feedback: Because you have a good title, you can omit and x and y axis labels. Omit the vertical grid lines using theme(). 
+
+## Graph Week 2
+
+Question I hope to answer: What's the frequency of all tomatoes varieties harvested by weekday/months?
+
+*Question:want advice to choose between 2 graphs; is there a way to arrange by sequence of facet graph?(such as move each graph separate)*
+
+*plan:corporate some harvest weight related info inside to make a plural dodge bar/change to proportion/rank by sequence*
+
+```{r}
+#weekday version:
+garden_harvest %>% 
+  filter(vegetable=="tomatoes") %>% 
+  mutate(weekday=factor(weekdays(date),levels= c("Monday", 
+    "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday","Sunday")))%>% 
+  group_by(variety,weekday) %>% 
+  summarise(count=n()) %>% 
+  mutate(Frequency = case_when(count<3 ~ 'low(less than 3 times)',
+                          count>=3&count<=6 ~ 'medium(3~6 times)',
+                           count>6 ~ 'high(more than 6 times)')) %>% 
+  ggplot(aes(y=reorder(variety,count),x=count,fill=Frequency))+
+  geom_bar(stat = 'identity')+
+  labs(title="Tomatoes varieties harvested frequency by weekday",x=NULL,y=NULL)+
+  facet_wrap(vars(weekday),ncol=4)+
+  geom_text(aes(label=count), vjust=0.5,hjust=1.2, size=3,color="white")+
+  theme_minimal()+
+  theme_clean()+
+  theme(plot.title = element_text(hjust=0.5,color="black",face="bold",size=14,vjust=1),panel.grid.major.y=element_blank())
+
+#month version:
+garden_harvest %>% 
+  filter(vegetable=="tomatoes") %>% 
+  mutate(month=factor(months(date),levels = c("July","August","September","October"))) %>% 
+  group_by(variety,month) %>% 
+  summarise(count=n()) %>% 
+  mutate(Frequency = case_when(count<=8 ~ 'low(less than 8 times)',
+                          count>8&count<16 ~ 'medium(8~15 times)',
+                           count>=16 ~ 'high(more than 16 times)')) %>% 
+  ggplot(aes(y=reorder(variety,count),x=count,fill=Frequency))+
+  geom_bar(stat = 'identity')+
+  labs(title="Tomatoes varieties harvested frequency by month",x=NULL,y=NULL)+
+  facet_wrap(vars(month))+
+  geom_text(aes(label=count), vjust=0.5, hjust=1.2, size=3.5,color="white")+
+  theme_minimal()+
+  theme_clean()+
+  theme(plot.title = element_text(hjust=0.5,color="black",face="bold",size=14,vjust=1),panel.grid.major.y=element_blank())
+```
+
+
+
+Instructor's feedback: by month is more interesting. Capitalize the first letter of each variety. Order the varieties in a meaningful way - maybe by overall number of harvests? Move the legend to the top or bottom.
+
+## Graph Week 3
+
+Question I hope to answer: What's the oversall planted situation of tomatoes in the garden?
+In plot one, What's the frequency of all tomatoes varieties harvested by months?
+In plot two, What's the weight distribution of three most planted tomato varieties?
+In plot three, What's the trend of monthly weight growing of grape tomoto?
+In plot four, What's the total weight share of each tomato varieties?
+#DO I need to decrease questions?
+
+```{r,fig.height=10,fig.width=12,fig.alt="A series of plots based on tomato varieties planted frequency and weight distribution,total share, as well as trend."}
+#bar plot
+bar<-garden_harvest %>% 
+   filter(vegetable=="tomatoes") %>% 
+   mutate(variety=str_to_title(variety),
+         month=factor(months(date),
+                      levels = c("July","August","September","October")))%>%
+  group_by(variety,month) %>%
+  summarise(count=n()) %>%
+  group_by(variety) %>%
+  mutate(total=sum(count),
+         Frequency = case_when(count<=8 ~ 'low',
+                          count>8&count<16 ~ 'medium',
+                           count>=16 ~ 'high')) %>%
+  ggplot(aes(y=reorder(variety,total),
+             x=count,
+             fill=Frequency))+
+  geom_bar(stat = 'identity')+
+  labs(title="Tomatoes varieties monthly harvested frequency",
+       x=NULL,
+       y=NULL,
+       caption = "low: 0-7 times\nmedium:8-15 times\nhigh:over 16 times")+
+  facet_wrap(vars(month))+
+  geom_text(aes(label=count), vjust=0.5, hjust=1.2, size=3.5,color="white")+
+  theme_minimal()+
+  theme_clean()+
+  scale_fill_manual(values = c("firebrick","salmon", "orangered"),limits = c("low", "medium", "high"))+
+  theme(plot.title = element_text(hjust=0.1,color="black",face="bold",size=14),
+        panel.grid.major.y=element_blank(),
+        legend.position = c(0.4,-0.15),
+        legend.direction="horizontal")
+bar
+
+#line plot
+imag<-"tomato.png"
+meg<-garden_harvest %>% 
+  filter(vegetable=="tomatoes",
+         variety%in%c("grape")) %>% 
+  mutate(variety=str_to_title(variety)) %>% 
+  group_by(variety,date)  %>% 
+  mutate(weight_sum=sum(weight)) %>% 
+  ggplot(aes(y=weight_sum,x=date))+
+  geom_image(image = imag, size = .03)+
+  geom_line(color="red")+
+  facet_wrap(vars(variety),ncol=3)+
+  theme(panel.grid.major = element_blank())+
+  theme()+
+  labs(title = "Daily weight in pounds\nof most planted tomato variety(grape)",
+       x="month",
+       y="pounds")+
+  theme(plot.title = element_text(hjust = 0.5,colour = "black", face = "bold", 
+    size = 14, vjust = 1))
+
+#density plot-may change to histogram nexttime
+dense<-garden_harvest %>% 
+ filter(vegetable=="tomatoes",variety%in%c("grape","volunteers","Amish Paste")) %>% 
+  mutate(variety=str_to_title(variety))  %>% 
+  group_by(variety) %>% 
+  ggplot(aes(y=variety,x=weight,fill=variety))+
+    geom_density_ridges_gradient(alpha=0.6, bandwidth=4,scale=1) +
+    scale_fill_viridis(discrete=TRUE) +
+    scale_color_viridis(discrete=TRUE) +
+    theme_ipsum() +
+    theme(
+      legend.position="none",
+      panel.spacing = unit(0.1, "lines"),
+      strip.text.x = element_text(size = 8)) +
+  labs(title="Weight distribution of\ntop 3 most planted tomato varieties")+
+    xlab("weight(lb)") +
+    ylab("variety")
+dense
+
+#stack density plot
+dense2<-garden_harvest %>%
+ filter(vegetable=="tomatoes") %>%
+ mutate(variety=str_to_title(variety),month=factor(months(date),levels = c("July","August","September","October")))  %>%
+ group_by(variety,month) %>%
+ summarise(weightt=sum(weight)) %>%
+ group_by(variety) %>%
+ ggplot(aes(x=weightt,group=variety,fill=variety))+
+ geom_density(position = "fill")+
+ labs(title="Total weight share of tomato varieties",
+       y="variety",
+       x="weight(lb)")+
+  theme(plot.title = element_text(hjust = 0.5,colour = "black", face = "bold", 
+    size = 14, vjust = 1)) #can be area plot but need cumsum
+
+ggarrange(bar,dense,meg,dense2,ncol=2,nrow = 2,heights = c(5, 5))  #check out patch work nexttime
+
+#done by ctrl shift c
+#change fonts,add tomato backgroud pic and color
+#big title
+
+```
+
+Instructor's feedback: Excellent! These are all really great. For this, I'd skip the graph on the top right. I think you could stretch out the one in the lower right across the entire top or you could do that with the one that's on the top left.
+
+## Graph Week 4
+
+Question I hope to answer:  What's the oversall planted situation of tomatoes in the garden?
+
+```{r,fig.height=10,fig.width=12,fig.alt="A series of plots based on tomato varieties planted frequency and weight distribution,total share, as well as trend."}
+#bar plot
+bar<-garden_harvest %>% 
+   filter(vegetable=="tomatoes") %>% 
+   mutate(variety=str_to_title(variety),
+         month=factor(months(date),
+                      levels = c("July","August","September","October")))%>%
+  group_by(variety,month) %>%
+  summarise(count=n()) %>%
+  group_by(variety) %>%
+  mutate(total=sum(count),
+         Frequency = case_when(count<=8 ~ 'low',
+                          count>8&count<16 ~ 'medium',
+                           count>=16 ~ 'high')) %>%
+  ggplot(aes(y=reorder(variety,total),
+             x=count,
+             fill=Frequency))+
+  geom_bar(stat = 'identity')+
+  labs(title="Tomatoes varieties monthly harvested frequency",
+       x=NULL,
+       y=NULL,
+       caption = "low: 0-7 times\nmedium:8-15 times\nhigh:over 16 times")+
+  facet_wrap(vars(month))+
+  geom_text(aes(label=count), vjust=0.5, hjust=1.2, size=3.5,color="white")+
+  theme_minimal()+
+  theme_clean()+
+  scale_fill_manual(values = c("firebrick","salmon", "orangered"),limits = c("low", "medium", "high"))+
+  theme(plot.title = element_text(hjust=0.4,color="black",face="bold",size=14),
+        panel.grid.major.y=element_blank(),
+        legend.position = c(0.4,-0.11),
+        legend.direction="horizontal")
+
+#line plot
+imag<-"tomato.png"
+meg<-garden_harvest %>% 
+  filter(vegetable=="tomatoes",
+         variety%in%c("grape")) %>% 
+  mutate(variety=str_to_title(variety)) %>% 
+  group_by(variety,date)  %>% 
+  mutate(weight_sum=sum(weight)) %>% 
+  ggplot(aes(y=weight_sum,x=date))+
+  geom_image(image = imag, size = .03)+
+  geom_line(color="red")+
+  facet_wrap(vars(variety),ncol=3)+
+  theme(panel.grid.major = element_blank())+
+  theme()+
+  labs(title = "Daily weight in pounds\nof most planted tomato variety(grape)",
+       x="month",
+       y="pounds")+
+  theme(plot.title = element_text(hjust = 0.5,colour = "black", face = "bold", 
+    size = 14, vjust = 1))
+
+
+#stack density plot
+dense2<-garden_harvest %>%
+ filter(vegetable=="tomatoes") %>%
+ mutate(variety=str_to_title(variety),month=factor(months(date),levels = c("July","August","September","October")))  %>%
+ group_by(variety,month) %>%
+ summarise(weightt=sum(weight)) %>%
+ group_by(variety) %>%
+ ggplot(aes(x=weightt,group=variety,fill=variety))+
+ geom_density(position = "fill")+
+ labs(title="Total weight share of tomato varieties",
+       y="variety",
+       x="weight(lb)")+
+  theme(plot.title = element_text(hjust = 0.7,colour = "black", face = "bold", 
+    size = 14, vjust = 1)) #can be area plot but need cumsum
+
+whole<-ggarrange(bar,
+          ggarrange(meg,dense2,ncol=2, labels = c("B", "C")),
+          nrow = 2, 
+          labels = "A",
+          heights=c(5.8,4)
+          )  
+
+annotate_figure(whole,
+                top = text_grob("Oversall planted situation of tomatoes in Lisa's garden", color = "brown", face = "bold", size = 18,hjust=0.5),
+                bottom = text_grob("Data source: \n garden data set", color = "blue",
+                                   hjust = 1, x = 1, face = "italic", size = 10),
+                fig.lab = "Perfect Garden Graph", fig.lab.face = "bold")
+#done by ctrl shift c
+#change fonts,add tomato backgroud pic and color
+#patchwork?
+```
+
+Instructor's feedback: Excellent! Add more detail to alt text - briefly describe each graph. And add a caption with your name.
+
+## Graph Week 5
+
+Question I hope to answer: What's the oversall planted situation of tomatoes in the garden?
+
+```{r,fig.height=10,fig.width=12,fig.alt="A series of plots based on tomato varieties planted frequency and weight distribution,total share, as well as trend.Graph A is the monthly harvested frequency of all tomato varieties,Graph B is the monthly weight increase of grape variety tomatoes,Graph C is the total occupation in portion of all tomato varieties."}
+#bar plot
+bar<-garden_harvest %>% 
+   filter(vegetable=="tomatoes") %>% 
+   mutate(variety=str_to_title(variety),
+         month=factor(months(date),
+                      levels = c("July","August","September","October")))%>%
+  group_by(variety,month) %>%
+  summarise(count=n()) %>%
+  group_by(variety) %>%
+  mutate(total=sum(count),
+         Frequency = case_when(count<=8 ~ 'low',
+                          count>8&count<16 ~ 'medium',
+                           count>=16 ~ 'high')) %>%
+  ggplot(aes(y=reorder(variety,total),
+             x=count,
+             fill=Frequency))+
+  geom_bar(stat = 'identity')+
+  labs(title="Tomatoes varieties monthly harvested frequency",
+       x=NULL,
+       y=NULL,
+       caption = "low: 0-7 times\nmedium:8-15 times\nhigh:over 16 times")+
+  facet_wrap(vars(month))+
+  geom_text(aes(label=count), vjust=0.5, hjust=1.2, size=3.5,color="white")+
+  theme_minimal()+
+  theme_clean()+
+  scale_fill_manual(values = c("firebrick","salmon", "orangered"),limits = c("low", "medium", "high"))+
+  theme(plot.title = element_text(hjust=0.4,color="black",face="bold",size=14),
+        panel.grid.major.y=element_blank(),
+        legend.position = c(0.4,-0.11),
+        legend.direction="horizontal")
+
+#line plot
+imag<-"tomato.png"
+meg<-garden_harvest %>% 
+  filter(vegetable=="tomatoes",
+         variety%in%c("grape")) %>% 
+  mutate(variety=str_to_title(variety)) %>% 
+  group_by(variety,date)  %>% 
+  mutate(weight_sum=sum(weight)) %>% 
+  ggplot(aes(y=weight_sum,x=date))+
+  geom_image(image = imag, size = .03)+
+  geom_line(color="red")+
+  facet_wrap(vars(variety),ncol=3)+
+  theme(panel.grid.major = element_blank())+
+  theme()+
+  labs(title = "Daily weight in pounds\nof most planted tomato variety(grape)",
+       x="month",
+       y="pounds")+
+  theme(plot.title = element_text(hjust = 0.5,colour = "black", face = "bold", 
+    size = 14, vjust = 1))
+
+
+#stack density plot
+dense2<-garden_harvest %>%
+ filter(vegetable=="tomatoes") %>%
+ mutate(variety=str_to_title(variety),month=factor(months(date),levels = c("July","August","September","October")))  %>%
+ group_by(variety,month) %>%
+ summarise(weightt=sum(weight)) %>%
+ group_by(variety) %>%
+ ggplot(aes(x=weightt,group=variety,fill=variety))+
+ geom_density(position = "fill")+
+ labs(title="Total weight share of tomato varieties",
+       y="variety",
+       x="weight(lb)")+
+  theme(plot.title = element_text(hjust = 0.7,colour = "black", face = "bold", 
+    size = 14, vjust = 1)) #can be area plot but need cumsum
+
+whole<-ggarrange(bar,
+          ggarrange(meg,dense2,ncol=2, labels = c("B", "C")),
+          nrow = 2, 
+          labels = "A",
+          heights=c(5.8,4)
+          )  
+
+annotate_figure(whole,
+                top = text_grob("Oversall planted situation of tomatoes in Lisa's garden", color = "brown", face = "bold", size = 18,hjust=0.5),
+                bottom = text_grob("Data source: \n garden data set,
+       Created by Xinyi Li", color = "blue",
+                                   hjust = 1, x = 1, face = "italic", size = 10),
+                fig.lab = "Perfect Garden Graph", fig.lab.face = "bold")
+#done by ctrl shift c
+#change fonts,add tomato backgroud pic and color
+#patchwork?
+```
+
+Instructor's feedback: (copy the feedback from moodle here)
+
